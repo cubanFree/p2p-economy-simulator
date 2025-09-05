@@ -1,15 +1,223 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// Usuarios del sistema
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación con empresa
+  company Company?
+
+  @@map("users")
+}
+
+// Empresas en el simulador
+model Company {
+  id       String      @id @default(cuid())
+  name     String      @unique
+  logo     String?
+  sector   Sector
+  size     CompanySize
+  location String
+
+  // Recursos financieros
+  capital Decimal @db.Decimal(15, 2)
+  cash    Decimal @db.Decimal(15, 2)
+  debt    Decimal @default(0) @db.Decimal(15, 2)
+
+  // Métricas
+  reputation  Float @default(5.0)
+  marketShare Float @default(0)
+  efficiency  Float @default(1.0)
+
+  // Relaciones
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Transacciones P2P
+  sentOffers     Transaction[] @relation("Seller")
+  receivedOffers Transaction[] @relation("Buyer")
+
+  // Contratos
+  contractsAsSeller Contract[] @relation("SellerContract")
+  contractsAsBuyer  Contract[] @relation("BuyerContract")
+
+  // Recursos e inventario
+  resources Resource[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("companies")
+}
+
+// Sectores industriales
+enum Sector {
+  TECHNOLOGY
+  MANUFACTURING
+  SERVICES
+  RETAIL
+  HEALTHCARE
+  FINANCE
+  ENERGY
+  AGRICULTURE
+  CONSTRUCTION
+  TRANSPORTATION
+}
+
+// Tamaños de empresa
+enum CompanySize {
+  STARTUP
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+// Transacciones entre empresas
+model Transaction {
+  id          String            @id @default(cuid())
+  type        TransactionType
+  status      TransactionStatus
+  amount      Decimal           @db.Decimal(15, 2)
+  description String?
+
+  // Partes involucradas
+  sellerId String
+  buyerId  String
+  seller   Company @relation("Seller", fields: [sellerId], references: [id])
+  buyer    Company @relation("Buyer", fields: [buyerId], references: [id])
+
+  // Metadatos
+  metadata Json?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@map("transactions")
+}
+
+enum TransactionType {
+  SALE
+  PURCHASE
+  LOAN
+  INVESTMENT
+  PARTNERSHIP
+  LICENSE
+  SUBCONTRACT
+}
+
+enum TransactionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+// Contratos a largo plazo
+model Contract {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  type        ContractType
+  status      ContractStatus
+  value       Decimal        @db.Decimal(15, 2)
+  duration    Int // días
+
+  // Partes
+  sellerId String
+  buyerId  String
+  seller   Company @relation("SellerContract", fields: [sellerId], references: [id])
+  buyer    Company @relation("BuyerContract", fields: [buyerId], references: [id])
+
+  // Fechas
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contracts")
+}
+
+enum ContractType {
+  SUPPLY
+  SERVICE
+  PARTNERSHIP
+  LICENSING
+  DISTRIBUTION
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  TERMINATED
+  EXPIRED
+}
+
+// Recursos de las empresas
+model Resource {
+  id       String       @id @default(cuid())
+  name     String
+  type     ResourceType
+  quantity Decimal      @db.Decimal(10, 2)
+  cost     Decimal      @db.Decimal(10, 2)
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("resources")
+}
+
+enum ResourceType {
+  RAW_MATERIAL
+  FINISHED_PRODUCT
+  TECHNOLOGY
+  EQUIPMENT
+  HUMAN_CAPITAL
+  INTELLECTUAL_PROPERTY
+}
+
+// Eventos del mercado
+model MarketEvent {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  type        EventType
+  impact      Json // Efectos en diferentes sectores
+  duration    Int? // días (null = permanente)
+
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  @@map("market_events")
+}
+
+enum EventType {
+  ECONOMIC_BOOM
+  RECESSION
+  TECHNOLOGY_DISRUPTION
+  REGULATION_CHANGE
+  NATURAL_DISASTER
+  SUPPLY_SHORTAGE
+  DEMAND_SURGE
 }
